@@ -1,0 +1,120 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [ master, main ]
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+          fetch-depth: "0"
+
+      - name: Set active Xcode path
+        run: |
+          XCODE_VERSION=$(cat versions.json | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj["xcode"]);")
+          if [ -d "/Applications/Xcode_$XCODE_VERSION.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_$XCODE_VERSION.app/Contents/Developer
+          else
+            sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          fi
+          xcodebuild -version
+
+      - name: Create canonical source directory
+        run: |
+          set -x
+          sudo mkdir -p /Users/Shared
+          cp -R "$GITHUB_WORKSPACE" /Users/Shared/
+          mv /Users/Shared/$(basename "$GITHUB_WORKSPACE") /Users/Shared/telegram-ios
+
+      - name: Cache Bazel Root
+        uses: actions/cache@v4
+        with:
+          path: /private/var/tmp/_bazel_containerhost
+          key: bazel-cache-${{ runner.os }}-${{ hashFiles('MODULE.bazel', 'versions.json', 'build-system/**') }}
+          restore-keys: |
+            bazel-cache-${{ runner.os }}-
+
+      - name: Build the App
+        run: |
+          set -x
+
+          # source code paths are included in the final binary, so we need to make them stable across builds
+          SOURCE_DIR=/Users/Shared/telegram-ios
+
+          # use canonical bazel root
+          BAZEL_USER_ROOT="/private/var/tmp/_bazel_containerhost"
+          mkdir -p "$BAZEL_USER_ROOT"
+
+          cd $SOURCE_DIR
+
+          BUILD_NUMBER_OFFSET="$(cat build_number_offset)"
+
+          export APP_VERSION=$(cat versions.json | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj["app"]);")
+          export COMMIT_COUNT=$(git rev-list --count HEAD)
+          export COMMIT_COUNT="$(($COMMIT_COUNT+$BUILD_NUMBER_OFFSET))"
+          export BUILD_NUMBER="$COMMIT_COUNT"
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
+
+          python3 build-system/Make/ImportCertificates.py --path build-system/fake-codesigning/certs
+          python3 -u build-system/Make/Make.py \
+            --bazelUserRoot="$BAZEL_USER_ROOT" \
+            build \
+            --configurationPath="build-system/appstore-configuration.json" \
+            --codesigningInformationPath=build-system/fake-codesigning \
+            --configuration=release_arm64 \
+            --buildNumber="$BUILD_NUMBER"
+
+          # collect ipa
+          OUTPUT_PATH="build/artifacts"
+          rm -rf "$OUTPUT_PATH"
+          mkdir -p "$OUTPUT_PATH"
+          for f in bazel-out/applebin_ios-ios_arm*-opt-ST-*/bin/Telegram/Telegram.ipa; do
+            cp "$f" $OUTPUT_PATH/
+          done
+
+          # collect dsym
+          mkdir -p build/DSYMs
+          for f in bazel-out/applebin_ios-ios_arm*-opt-ST-*/bin/Telegram/*.dSYM; do
+            cp -R "$f" build/DSYMs/
+          done
+          zip -r "./$OUTPUT_PATH/Telegram.DSYMs.zip" build/DSYMs 1>/dev/null
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Telegram-iOS-IPA
+          path: /Users/Shared/telegram-ios/build/artifacts/Telegram.ipa
+
+      - name: Release IPA
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        with:
+          tag_name: build-${{ env.BUILD_NUMBER }}
+          name: TuanGram iOS ${{ env.APP_VERSION }} (${{ env.BUILD_NUMBER }})
+          body: |
+            ### TuanGram iOS ${{ env.APP_VERSION }} (${{ env.BUILD_NUMBER }})
+            - **Anti-Recall & Anti-TTL:** Chống thu hồi và tự hủy tin nhắn, gắn biểu tượng 🗑
+            - **Ghost Mode:** Ẩn đã xem và trạng thái đang soạn tin nhắn
+            - **Content Unlocker:** Mở khóa sao chép, chuyển tiếp và lưu media từ kênh/nhóm cấm
+            - **Unlimited Accounts:** Không giới hạn số lượng tài khoản đăng nhập
+            - **Max Limits:** Nâng kịch trần ghim tin nhắn (1000), thư mục chat (1000), ký tự bio/caption (10000)
+            - **Ad Blocker:** Chặn hoàn toàn tin nhắn tài trợ / quảng cáo
+            - **Translate Bar:** Mở khóa thanh dịch thời gian thực cho mọi đoạn chat
+            - **Peer ID:** Hiển thị User ID & Channel ID trong profile kèm 1 chạm để sao chép
+          files: |
+            /Users/Shared/telegram-ios/build/artifacts/Telegram.ipa
+            /Users/Shared/telegram-ios/build/artifacts/Telegram.DSYMs.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
