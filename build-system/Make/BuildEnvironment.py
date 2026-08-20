@@ -196,14 +196,9 @@ class BuildEnvironment:
 
         actual_xcode_version = get_xcode_version()
         if actual_xcode_version != versions.xcode_version:
-            if override_xcode_version:
-                print('Overriding the required Xcode version {} with {} as reported by \'xcode-select -p\''.format(
-                    versions.xcode_version, actual_xcode_version, self.bazel_path))
-                versions.xcode_version = actual_xcode_version
-            else:
-                print('Required Xcode version is {}, but {} is reported by \'xcode-select -p\''.format(
-                    versions.xcode_version, actual_xcode_version, self.bazel_path))
-                exit(1)
+            print('Using Xcode version {} (required is {}) as reported by \'xcode-select -p\''.format(
+                actual_xcode_version, versions.xcode_version))
+            versions.xcode_version = actual_xcode_version
 
         self.app_version = versions.app_version
         self.xcode_version = versions.xcode_version
