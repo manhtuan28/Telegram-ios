@@ -17,8 +17,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: "recursive"
           fetch-depth: "0"
+
+      - name: Fetch and Sync Submodules
+        run: |
+          set -e
+          python3 -c '
+          import configparser, subprocess, os, shutil
+          config = configparser.ConfigParser()
+          config.read(".gitmodules")
+          for section in config.sections():
+              path = config.get(section, "path")
+              url = config.get(section, "url")
+              if not os.path.exists(path) or not os.listdir(path):
+                  print(f"Cloning submodule {url} into {path}...")
+                  shutil.rmtree(path, ignore_errors=True)
+                  os.makedirs(os.path.dirname(path), exist_ok=True)
+                  subprocess.run(["git", "clone", "--depth=1", "--recursive", url, path], check=True)
+          '
 
       - name: Set active Xcode path
         run: |
