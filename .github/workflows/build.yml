@@ -22,9 +22,13 @@ jobs:
 
       - name: Set active Xcode path
         run: |
-          XCODE_VERSION=$(cat versions.json | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj["xcode"]);")
+          XCODE_VERSION=$(python3 -c "import json; print(json.load(open('versions.json'))['xcode'])")
           if [ -d "/Applications/Xcode_$XCODE_VERSION.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_$XCODE_VERSION.app/Contents/Developer
+            sudo xcode-select -s "/Applications/Xcode_$XCODE_VERSION.app/Contents/Developer"
+          elif [ -d "/Applications/Xcode_16.0.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
+          elif [ -d "/Applications/Xcode_15.4.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
           else
             sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
           fi
@@ -60,7 +64,7 @@ jobs:
 
           BUILD_NUMBER_OFFSET="$(cat build_number_offset)"
 
-          export APP_VERSION=$(cat versions.json | python3 -c "import json,sys;obj=json.load(sys.stdin);print(obj["app"]);")
+          export APP_VERSION=$(python3 -c "import json; print(json.load(open('versions.json'))['app'])")
           export COMMIT_COUNT=$(git rev-list --count HEAD)
           export COMMIT_COUNT="$(($COMMIT_COUNT+$BUILD_NUMBER_OFFSET))"
           export BUILD_NUMBER="$COMMIT_COUNT"
@@ -111,7 +115,8 @@ jobs:
             - **Unlimited Accounts:** Không giới hạn số lượng tài khoản đăng nhập
             - **Max Limits:** Nâng kịch trần ghim tin nhắn (1000), thư mục chat (1000), ký tự bio/caption (10000)
             - **Ad Blocker:** Chặn hoàn toàn tin nhắn tài trợ / quảng cáo
-            - **Translate Bar:** Mở khóa thanh dịch thời gian thực cho mọi đoạn chat
+            - **Voice-to-Text:** Miễn phí chuyển tin nhắn thoại thành văn bản không giới hạn
+            - **Hide Stories & Camera Swipe:** Ẩn thanh Story và tắt vuốt mở camera
             - **Peer ID:** Hiển thị User ID & Channel ID trong profile kèm 1 chạm để sao chép
           files: |
             /Users/Shared/telegram-ios/build/artifacts/Telegram.ipa
