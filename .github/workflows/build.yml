@@ -42,19 +42,19 @@ jobs:
                   wtext = f.read()
               wtext = wtext.replace(
                   "av_frame->reordered_opaque = context->reordered_opaque;",
-                  "#if LIBAVUTIL_VERSION_MAJOR >= 57\n  av_frame->pts = context->pts;\n#else\n  av_frame->reordered_opaque = context->reordered_opaque;\n#endif"
+                  "#if LIBAVUTIL_VERSION_MAJOR < 57\n  av_frame->reordered_opaque = context->reordered_opaque;\n#endif"
               )
               wtext = wtext.replace(
                   "av_context_->reordered_opaque = frame_timestamp_us;",
-                  "  packet->pts = frame_timestamp_us;\n#if LIBAVUTIL_VERSION_MAJOR >= 57\n  av_context_->pts = frame_timestamp_us;\n#else\n  av_context_->reordered_opaque = frame_timestamp_us;\n#endif"
+                  "  packet->pts = frame_timestamp_us;\n  packet->dts = frame_timestamp_us;\n#if LIBAVUTIL_VERSION_MAJOR < 57\n  av_context_->reordered_opaque = frame_timestamp_us;\n#endif"
               )
               wtext = wtext.replace(
                   "RTC_DCHECK_EQ(av_frame_->reordered_opaque, frame_timestamp_us);",
-                  "#if LIBAVUTIL_VERSION_MAJOR >= 57\n  RTC_DCHECK_EQ(av_frame_->pts, frame_timestamp_us);\n#else\n  RTC_DCHECK_EQ(av_frame_->reordered_opaque, frame_timestamp_us);\n#endif"
+                  "#if LIBAVUTIL_VERSION_MAJOR < 57\n  RTC_DCHECK_EQ(av_frame_->reordered_opaque, frame_timestamp_us);\n#else\n  RTC_DCHECK_EQ(av_frame_->pts, frame_timestamp_us);\n#endif"
               )
               with open(webrtc_h264, "w") as f:
                   f.write(wtext)
-              print("Applied FFmpeg 7.x patch to WebRTC")
+              print("Applied clean FFmpeg 7.x patch to WebRTC")
           '
 
       - name: Set active Xcode path
