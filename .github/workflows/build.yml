@@ -55,6 +55,19 @@ jobs:
               with open(webrtc_h264, "w") as f:
                   f.write(wtext)
               print("Applied clean FFmpeg 7.x patch to WebRTC")
+
+          # Patch codesigningtool.py for fallback to profile certificate
+          cs_tool = "build-system/bazel-rules/rules_apple/tools/codesigningtool/codesigningtool.py"
+          if os.path.exists(cs_tool):
+              with open(cs_tool, "r") as f:
+                  ctext = f.read()
+              ctext = ctext.replace(
+                  "def _find_codesign_identity(mobileprovision):\n  \"\"\"Finds a valid identity on the system given a mobileprovision file.\"\"\"\n  mpf = _parse_mobileprovision_file(mobileprovision)\n  ids_codesign = set(_find_codesign_identities())\n  for id_mpf in _get_identities_from_provisioning_profile(mpf):\n    if id_mpf in ids_codesign:\n      return id_mpf",
+                  "def _find_codesign_identity(mobileprovision):\n  \"\"\"Finds a valid identity on the system given a mobileprovision file.\"\"\"\n  mpf = _parse_mobileprovision_file(mobileprovision)\n  profile_ids = list(_get_identities_from_provisioning_profile(mpf))\n  ids_codesign = set(_find_codesign_identities())\n  for id_mpf in profile_ids:\n    if id_mpf in ids_codesign:\n      return id_mpf\n  if profile_ids:\n    return profile_ids[0]"
+              )
+              with open(cs_tool, "w") as f:
+                  f.write(ctext)
+              print("Applied codesigningtool fallback patch")
           '
 
       - name: Set active Xcode path
