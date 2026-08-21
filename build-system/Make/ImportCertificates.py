@@ -39,13 +39,30 @@ def import_certificates(certificatesPath):
     run_executable_with_output('security', arguments=['list-keychains', '-d', 'user', '-s'] + keychain_list, check_result=True)
     run_executable_with_output('security', arguments=['default-keychain', '-d', 'user', '-s', keychain_name], check_result=False)
 
-    for file_name in os.listdir(certificatesPath):
+    for file_name in sorted(os.listdir(certificatesPath)):
         file_path = os.path.join(certificatesPath, file_name)
         if file_path.endswith('.p12') or file_path.endswith('.cer'):
             print(f'Importing {file_path} into {keychain_name}...')
+            try:
+                run_executable_with_output('security', arguments=[
+                    'import',
+                    file_path,
+                    '-k',
+                    keychain_name,
+                    '-P',
+                    '',
+                    '-A',
+                    '-T', '/usr/bin/codesign',
+                    '-T', '/usr/bin/security'
+                ], check_result=False)
+            except Exception as e:
+                print(f'Notice when importing {file_path}: {e}')
+
+    if os.path.exists('build-system/AppleWWDRCAG3.cer'):
+        try:
             run_executable_with_output('security', arguments=[
                 'import',
-                file_path,
+                'build-system/AppleWWDRCAG3.cer',
                 '-k',
                 keychain_name,
                 '-P',
@@ -53,20 +70,9 @@ def import_certificates(certificatesPath):
                 '-A',
                 '-T', '/usr/bin/codesign',
                 '-T', '/usr/bin/security'
-            ], check_result=True)
-
-    if os.path.exists('build-system/AppleWWDRCAG3.cer'):
-        run_executable_with_output('security', arguments=[
-            'import',
-            'build-system/AppleWWDRCAG3.cer',
-            '-k',
-            keychain_name,
-            '-P',
-            '',
-            '-A',
-            '-T', '/usr/bin/codesign',
-            '-T', '/usr/bin/security'
-        ], check_result=False)
+            ], check_result=False)
+        except Exception as e:
+            print(f'Notice when importing AppleWWDRCAG3.cer: {e}')
 
     run_executable_with_output('security', arguments=[
         'set-key-partition-list',
@@ -80,8 +86,11 @@ def import_certificates(certificatesPath):
 
     run_executable_with_output('security', arguments=['unlock-keychain', '-p', keychain_password, keychain_name])
     
-    identities = run_executable_with_output('security', arguments=['find-identity', '-v', '-p', 'codesigning'])
-    print('Available signing identities:\n', identities)
+    try:
+        identities = run_executable_with_output('security', arguments=['find-identity', '-v', '-p', 'codesigning'])
+        print('Available signing identities:\n', identities)
+    except Exception as e:
+        print('Could not list identities:', e)
 
 
 if __name__ == '__main__':
