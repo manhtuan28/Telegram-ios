@@ -12,9 +12,10 @@ def import_certificates(certificatesPath):
     keychain_name = 'temp.keychain'
     keychain_password = 'secret'
 
-    existing_keychains = run_executable_with_output('security', arguments=['list-keychains'], check_result=True)
-    if keychain_name in existing_keychains:
-        run_executable_with_output('security', arguments=['delete-keychain'], check_result=True)
+    try:
+        run_executable_with_output('security', arguments=['delete-keychain', keychain_name])
+    except Exception:
+        pass
 
     run_executable_with_output('security', arguments=[
         'create-keychain',
@@ -23,24 +24,25 @@ def import_certificates(certificatesPath):
         keychain_name
     ], check_result=True)
 
-    existing_keychains = run_executable_with_output('security', arguments=['list-keychains', '-d', 'user'])
-    existing_keychains.replace('"', '')
-
-    run_executable_with_output('security', arguments=[
-        'list-keychains',
-        '-d',
-        'user',
-        '-s',
-        keychain_name,
-        existing_keychains
-    ], check_result=True)
-
-    run_executable_with_output('security', arguments=['set-keychain-settings', keychain_name])
+    run_executable_with_output('security', arguments=['set-keychain-settings', '-lut', '7200', keychain_name])
     run_executable_with_output('security', arguments=['unlock-keychain', '-p', keychain_password, keychain_name])
 
+    try:
+        raw_keychains = run_executable_with_output('security', arguments=['list-keychains', '-d', 'user'])
+        keychain_list = [kc.strip().strip('"') for kc in raw_keychains.splitlines() if kc.strip()]
+    except Exception:
+        keychain_list = []
+
+    if keychain_name not in keychain_list:
+        keychain_list.insert(0, keychain_name)
+
+    run_executable_with_output('security', arguments=['list-keychains', '-d', 'user', '-s'] + keychain_list, check_result=True)
+    run_executable_with_output('security', arguments=['default-keychain', '-d', 'user', '-s', keychain_name], check_result=False)
+
     for file_name in os.listdir(certificatesPath):
-        file_path = certificatesPath + '/' + file_name
+        file_path = os.path.join(certificatesPath, file_name)
         if file_path.endswith('.p12') or file_path.endswith('.cer'):
+            print(f'Importing {file_path} into {keychain_name}...')
             run_executable_with_output('security', arguments=[
                 'import',
                 file_path,
@@ -48,33 +50,38 @@ def import_certificates(certificatesPath):
                 keychain_name,
                 '-P',
                 '',
-                '-T',
-                '/usr/bin/codesign',
-                '-T',
-                '/usr/bin/security'
-            ], check_result=False)
+                '-A',
+                '-T', '/usr/bin/codesign',
+                '-T', '/usr/bin/security'
+            ], check_result=True)
 
-    run_executable_with_output('security', arguments=[
-        'import',
-        'build-system/AppleWWDRCAG3.cer',
-        '-k',
-        keychain_name,
-        '-P',
-        '',
-        '-T',
-        '/usr/bin/codesign',
-        '-T',
-        '/usr/bin/security'
-    ], check_result=False)
+    if os.path.exists('build-system/AppleWWDRCAG3.cer'):
+        run_executable_with_output('security', arguments=[
+            'import',
+            'build-system/AppleWWDRCAG3.cer',
+            '-k',
+            keychain_name,
+            '-P',
+            '',
+            '-A',
+            '-T', '/usr/bin/codesign',
+            '-T', '/usr/bin/security'
+        ], check_result=False)
 
     run_executable_with_output('security', arguments=[
         'set-key-partition-list',
         '-S',
-        'apple-tool:,apple:',
+        'apple-tool:,apple:,codesign:',
+        '-s',
         '-k',
         keychain_password,
         keychain_name
-    ], check_result=True)
+    ], check_result=False)
+
+    run_executable_with_output('security', arguments=['unlock-keychain', '-p', keychain_password, keychain_name])
+    
+    identities = run_executable_with_output('security', arguments=['find-identity', '-v', '-p', 'codesigning'])
+    print('Available signing identities:\n', identities)
 
 
 if __name__ == '__main__':
