@@ -484,38 +484,18 @@ public class GlassBackgroundView: UIView {
     public static var useCustomGlassImpl: Bool = false
     
     public override init(frame: CGRect) {
-        if #available(iOS 26.0, *), !GlassBackgroundView.useCustomGlassImpl {
-            self.legacyView = nil
-            self.legacyHighlightContainerView = nil
-            self.legacyHighlightClippingContext = nil
-            
-            let glassEffect = UIGlassEffect(style: .regular)
-            glassEffect.isInteractive = false
-            let nativeView = UIVisualEffectView(effect: glassEffect)
-            self.nativeViewClippingContext = ClippingShapeContext(view: nativeView)
-            self.nativeView = nativeView
-            
-            let nativeParamsView = EffectSettingsContainerView(frame: CGRect())
-            self.nativeParamsView = nativeParamsView
-            
-            nativeParamsView.addSubview(nativeView)
-            
-            self.foregroundView = nil
-            self.shadowView = nil
-        } else {
-            self.legacyView = LegacyGlassView(frame: CGRect())
-            let legacyHighlightContainerView = UIView()
-            legacyHighlightContainerView.isUserInteractionEnabled = false
-            legacyHighlightContainerView.clipsToBounds = true
-            self.legacyHighlightContainerView = legacyHighlightContainerView
-            self.legacyHighlightClippingContext = ClippingShapeContext(view: legacyHighlightContainerView)
-            self.nativeView = nil
-            self.nativeViewClippingContext = nil
-            self.nativeParamsView = nil
-            self.foregroundView = UIImageView()
-            
-            self.shadowView = UIImageView()
-        }
+        self.legacyView = LegacyGlassView(frame: CGRect())
+        let legacyHighlightContainerView = UIView()
+        legacyHighlightContainerView.isUserInteractionEnabled = false
+        legacyHighlightContainerView.clipsToBounds = true
+        self.legacyHighlightContainerView = legacyHighlightContainerView
+        self.legacyHighlightClippingContext = ClippingShapeContext(view: legacyHighlightContainerView)
+        self.nativeView = nil
+        self.nativeViewClippingContext = nil
+        self.nativeParamsView = nil
+        self.foregroundView = UIImageView()
+        
+        self.shadowView = UIImageView()
         
         self.maskContainerView = UIView()
         self.maskContainerView.backgroundColor = .white
