@@ -1473,26 +1473,14 @@ private final class LensTransitionContainerEffectViewImpl: UIView, LensTransitio
     
     func update(theme: PresentationTheme) {
         self.theme = theme
-        if #available(iOS 26.0, *) {
-            let glassEffectValue: UIGlassEffect
-            if theme.overallDarkAppearance {
-                glassEffectValue = UIGlassEffect(style: .regular)
-                //glassEffectValue.tintColor = UIColor(white: 1.0, alpha: 0.025)
-            } else {
-                glassEffectValue = UIGlassEffect(style: .regular)
-                //glassEffectValue.tintColor = UIColor(white: 1.0, alpha: 0.1)
-            }
-            self.glassView.effect = glassEffectValue
-        }
     }
     
     func updateSize(size: CGSize, cornerRadius: CGFloat, transition: ComponentTransition) {
         transition.animateView {
             self.glassView.bounds.size = size
             self.glassView.center = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
-            if #available(iOS 26.0, *) {
-                self.glassView.cornerConfiguration = .corners(radius: UICornerRadius(floatLiteral: cornerRadius))
-            }
+            self.glassView.layer.cornerRadius = cornerRadius
+            self.glassView.layer.masksToBounds = true
         }
     }
     
