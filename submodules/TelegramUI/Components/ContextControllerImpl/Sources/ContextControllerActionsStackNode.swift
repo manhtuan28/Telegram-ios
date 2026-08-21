@@ -1574,44 +1574,6 @@ private final class LensTransitionContainerEffectViewImpl: UIView, LensTransitio
     }
     
     func updateCornerRadius(duration: Double, keyframes: [CGFloat]) {
-        guard #available(iOS 26.0, *) else {
-            return
-        }
-        
-        guard keyframes.count >= 2 else {
-            if let last = keyframes.last {
-                self.glassView.cornerConfiguration = .corners(radius: UICornerRadius(floatLiteral: last))
-            }
-            return
-        }
-        
-        // Start value
-        self.glassView.cornerConfiguration = .corners(radius: UICornerRadius(floatLiteral: keyframes[0]))
-        
-        let segmentCount = keyframes.count - 1
-        let relativeStep = 1.0 / Double(segmentCount)
-        
-        var options: UIView.KeyframeAnimationOptions = [.calculationModeLinear]
-        options.insert(UIView.KeyframeAnimationOptions(rawValue: UIView.AnimationOptions.curveLinear.rawValue))
-        UIView.animateKeyframes(
-            withDuration: duration,
-            delay: 0.0,
-            options: options,
-            animations: {
-                for i in 0 ..< segmentCount {
-                    let nextValue = keyframes[i + 1]
-                    let relativeStartTime = Double(i) * relativeStep
-                    let relativeDuration = (i == segmentCount - 1) ? (1.0 - relativeStartTime) : relativeStep
-                    UIView.addKeyframe(
-                        withRelativeStartTime: relativeStartTime,
-                        relativeDuration: relativeDuration
-                    ) {
-                        self.glassView.cornerConfiguration = .corners(radius: UICornerRadius(floatLiteral: nextValue))
-                    }
-                }
-            },
-            completion: nil
-        )
     }
     
     func setTransitionFraction(value: CGFloat, duration: Double) {
