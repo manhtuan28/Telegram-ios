@@ -78,11 +78,11 @@ jobs:
           cp -R "$GITHUB_WORKSPACE" /Users/Shared/
           mv /Users/Shared/$(basename "$GITHUB_WORKSPACE") /Users/Shared/telegram-ios
 
-      - name: Cache Bazel Root
-        uses: actions/cache@v4
+      - name: Restore Bazel Cache
+        uses: actions/cache/restore@v4
         with:
           path: /private/var/tmp/_bazel_containerhost
-          key: bazel-cache-${{ runner.os }}-${{ hashFiles('MODULE.bazel', 'versions.json', 'build-system/**') }}
+          key: bazel-cache-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             bazel-cache-${{ runner.os }}-
 
@@ -161,3 +161,10 @@ jobs:
             /Users/Shared/telegram-ios/build/artifacts/Telegram.DSYMs.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Save Bazel Cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: /private/var/tmp/_bazel_containerhost
+          key: bazel-cache-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
